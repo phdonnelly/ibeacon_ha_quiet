@@ -299,6 +299,16 @@ class IBeaconCoordinator:
     ) -> None:
         """Update iBeacons with random mac addresses."""
         new = group_id not in self._last_seen_by_group_id
+
+        if not self._allow_new_devices: # If we are set to not allow new devices
+            #Todo: random mac beacons are currently not restored in _async_restore_from_registry like unique addresses are
+            #As such we have no way to tell the difference between a "new not seen since this boot" and "new not previously tracked at all"
+            #For now ignore all random mac device updates as a band-aid
+            _LOGGER.debug("new devices disabled: ignoring all random mac beacon %s", group_id)
+            return
+        else: #log if the new setting is turned off
+            _LOGGER.debug("new devices enabled: processing random mac beacon %s", group_id)
+
         self._last_seen_by_group_id[group_id] = service_info
         self._unavailable_group_ids.discard(group_id)
         _async_dispatch_update(
@@ -337,15 +347,16 @@ class IBeaconCoordinator:
             return
 
         previously_tracked = address in self._unique_ids_by_address
+
+        if not self._allow_new_devices: # If we are set to not allow new devices
+            if not previously_tracked: # and if this device is new to us, ignore it
+                _LOGGER.debug("new devices disabled: ignoring new unique beacon %s:%s", group_id, unique_id)
+                return
+            else: # otherwise allow and log it
+                _LOGGER.debug("new devices disabled: processing existing unique beacon %s:%s", group_id, unique_id)
+        else: #log if the new setting is turned off
+            _LOGGER.debug("new devices enabled: processing unique mac beacon %s:%s", group_id, group_id)
         
-        # If we are not set to allow new devices and this device has not been registered yet stop processing
-        if (
-            not previously_tracked
-            and not self._allow_new_devices
-        ):
-            _LOGGER.debug("ignoring new beacon %s due to config", unique_id)
-            return
-            
         self._last_ibeacon_advertisement_by_unique_id[unique_id] = ibeacon_advertisement
         self._async_track_ibeacon_with_unique_address(address, group_id, unique_id)
         if address not in self._unavailable_trackers:
