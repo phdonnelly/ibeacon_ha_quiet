@@ -16,5 +16,5 @@
   "loggers": ["bleak"],
   "requirements": ["ibeacon-ble==1.2.0"],
   "single_config_entry": true,
-  "version": "0.8.0"
+  "version": "0.8.1"
 }
